@@ -2,17 +2,14 @@
 // Funzione serverless Vercel — riceve le risposte dell'assessment e le invia via email
 
 export default async function handler(req, res) {
-  // Permetti solo POST
   if (req.method !== 'POST') {
     return res.status(405).json({ status: 'error', message: 'Method not allowed' });
   }
 
-  // Headers CORS — necessari per la chiamata dal browser
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Preflight OPTIONS
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -24,10 +21,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ status: 'error', message: 'Payload non valido' });
     }
 
-    // ── Costruisce il testo del report ──────────────────────────────────────
     const timestamp = answers.timestamp || new Date().toLocaleString('it-IT');
 
-    // Raggruppa le risposte per sezione
     const sections = {
       'Parte I — Cultura finanziaria e mercati (Q1–Q8)': ['q1','q2','q3','q4','q5','q6','q7','q8'],
       'Parte II — Strumenti e veicoli (Q9–Q17)': ['q9','q10','q11','q12','q13','q14','q15','q16','q17'],
@@ -37,7 +32,6 @@ export default async function handler(req, res) {
       'Parte VI — Passaggio generazionale (Q61–Q72)': ['q61','q62','q63','q64','q65','q66','q67','q68','q69','q70','q71','q72'],
     };
 
-    // Costruisce le righe del report
     let reportRows = '';
     for (const [section, qIds] of Object.entries(sections)) {
       reportRows += `
@@ -49,7 +43,6 @@ export default async function handler(req, res) {
         </tr>`;
 
       for (const qId of qIds) {
-        // Risposta base (radio MCQ)
         const baseAnswer = answers[qId];
         if (baseAnswer !== undefined) {
           const displayVal = baseAnswer === 'dk' ? '— (Non saprei)' : baseAnswer.toUpperCase();
@@ -62,7 +55,6 @@ export default async function handler(req, res) {
           </tr>`;
         }
 
-        // Risposte composte (matching, ranking, prioritization, likert)
         const compositeKeys = Object.keys(answers).filter(k => k.startsWith(qId + '_'));
         if (compositeKeys.length > 0) {
           const parts = compositeKeys.map(k => {
@@ -80,19 +72,14 @@ export default async function handler(req, res) {
       }
     }
 
-    // Conta le risposte totali
     const totalAnswered = Object.keys(answers).filter(k => k.startsWith('q')).length;
 
-    // ── HTML dell'email ──────────────────────────────────────────────────────
     const emailHtml = `
 <!DOCTYPE html>
 <html lang="it">
 <head><meta charset="UTF-8"><title>PMI Assessment — Risultati</title></head>
 <body style="margin:0;padding:0;background:#f5f0e6;font-family:Arial,sans-serif;">
-
   <div style="max-width:680px;margin:40px auto;background:white;border:1px solid #d8d2c5;">
-
-    <!-- Header -->
     <div style="background:#250909;padding:36px 40px;text-align:center;">
       <div style="font-family:Georgia,serif;font-size:11px;letter-spacing:0.25em;
         text-transform:uppercase;color:rgba(251,217,200,0.6);margin-bottom:12px;">
@@ -108,34 +95,22 @@ export default async function handler(req, res) {
         Report riservato — Cuniberti &amp; Partners
       </div>
     </div>
-
-    <!-- Meta -->
     <div style="padding:24px 40px;background:#faf7f2;border-bottom:1px solid #ebe4d4;">
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
-            color:#9a7e4f;font-family:Arial,sans-serif;padding:4px 0;">
-            Data compilazione
-          </td>
+            color:#9a7e4f;font-family:Arial,sans-serif;padding:4px 0;">Data compilazione</td>
           <td style="font-size:13px;color:#2d3139;font-family:Georgia,serif;
-            text-align:right;padding:4px 0;">
-            ${timestamp}
-          </td>
+            text-align:right;padding:4px 0;">${timestamp}</td>
         </tr>
         <tr>
           <td style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
-            color:#9a7e4f;font-family:Arial,sans-serif;padding:4px 0;">
-            Risposte raccolte
-          </td>
+            color:#9a7e4f;font-family:Arial,sans-serif;padding:4px 0;">Risposte raccolte</td>
           <td style="font-size:13px;color:#2d3139;font-family:Georgia,serif;
-            text-align:right;padding:4px 0;">
-            ${totalAnswered} campi
-          </td>
+            text-align:right;padding:4px 0;">${totalAnswered} campi</td>
         </tr>
       </table>
     </div>
-
-    <!-- Corpo risposte -->
     <div style="padding:32px 40px;">
       <p style="font-family:Georgia,serif;font-size:15px;font-style:italic;
         color:#2d3139;margin:0 0 24px;">
@@ -145,20 +120,16 @@ export default async function handler(req, res) {
         ${reportRows}
       </table>
     </div>
-
-    <!-- Footer -->
     <div style="background:#0f1e36;padding:24px 40px;text-align:center;">
       <div style="font-family:Georgia,serif;font-size:11px;letter-spacing:0.15em;
         text-transform:uppercase;color:rgba(235,228,212,0.5);">
         Cuniberti &amp; Partners · Multi Family Office · Torino
       </div>
     </div>
-
   </div>
 </body>
 </html>`;
 
-    // ── Invio email via Resend ───────────────────────────────────────────────
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -167,7 +138,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         from: 'Assessment PMI <onboarding@resend.dev>',
-        to: ['andrea.bolognesi@cunibertipartners.it'],
+        to: ['andrebolo2000@gmail.com'],
         subject: `[PMI] Nuovo assessment ricevuto — ${timestamp}`,
         html: emailHtml,
       }),
@@ -176,7 +147,6 @@ export default async function handler(req, res) {
     if (!resendResponse.ok) {
       const errorBody = await resendResponse.text();
       console.error('Resend error:', errorBody);
-      // Rispondi comunque OK al cliente — l'errore è interno
       return res.status(200).json({ status: 'ok' });
     }
 
@@ -184,7 +154,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('Handler error:', err);
-    // Anche in caso di errore imprevisto, il cliente vede la pagina di conferma
     return res.status(200).json({ status: 'ok' });
   }
 }
